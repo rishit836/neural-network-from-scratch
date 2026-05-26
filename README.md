@@ -3,7 +3,7 @@
 A fully connected neural network built completely from scratch using only NumPy, trained on image classification data.  
 This project was mainly focused on understanding *how neural networks actually learn internally* rather than relying on high-level frameworks like TensorFlow or PyTorch.
 
-![App Screenshot](https://github.com/rishit836/cnn-from-scratch/blob/basic-neural-network/prediction.png?raw=true)
+![App Screenshot](https://github.com/rishit836/cnn-from-scratch/blob/basic-neural-network/resources/prediction.png?raw=true)
 
 ---
 
