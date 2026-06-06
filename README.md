@@ -1,150 +1,74 @@
-# Neural Network From Scratch
+# Neural Network From Scratch (micrograd + MLP example)
 
-A fully connected neural network built completely from scratch using only NumPy, trained on image classification data.  
-This project was mainly focused on understanding *how neural networks actually learn internally* rather than relying on high-level frameworks like TensorFlow or PyTorch.
-
-![App Screenshot](https://github.com/rishit836/cnn-from-scratch/blob/basic-neural-network/resources/prediction.png?raw=true)
+This repository contains a small-from-scratch neural network toolkit using a tiny autograd implementation (micrograd-style) and a simple multilayer perceptron (MLP) training example. It is intended for learning and experimentation rather than production use.
 
 ---
 
-## What This Project Does
+## What’s in this repo
 
-- Implements a neural network from scratch using NumPy
-- Performs forward propagation manually
-- Implements backpropagation and gradient descent without deep learning libraries
-- Trains on image classification data
-- Predicts random samples after training
-- Displays images along with predictions for testing and evaluation
-
----
-
-## Main Learning Outcomes
-
-This project was less about just “making a model work” and more about deeply understanding the internal mechanics of neural networks.
-
-### Forward Pass
-
-The forward pass was comparatively easier to understand.  
-The only initially confusing part was handling matrix dimensions and understanding how data flows through layers using matrix multiplication, but after experimenting with the structures, it became intuitive.
-
-Key concepts learned:
-- Matrix multiplication in neural networks
-- Weight and bias transformations
-- Activation functions
-- Layer-wise data flow
+- `multilayer-perceptron.py` — training script that uses the `micrograd` package to train a small MLP on image data from `dataset/train.csv`.
+- `basic-neural-network-from-scratch.ipynb` — notebook with exploratory code and visualizations.
+- `micrograd/` — minimal autograd implementation:
+	- `micrograd/grad.py` — `Value` class with forward ops and backward pass.
+	- `micrograd/nn.py` — `Neuron`, `Layer`, and `MLP` convenience classes built on top of `Value`.
+- `dataset/` — contains `train.csv` and `test.csv` expected by the training script.
 
 ---
 
-### Understanding Backpropagation
+## Requirements
 
-Backpropagation was the most challenging and important part of the project.
-
-To properly understand it, I spent time going back and forth between:
-- theory
-- implementation videos
-- mathematical derivations
-- debugging outputs
-
-This process helped build intuition for:
-- gradient flow
-- chain rule application
-- derivative calculations
-- weight updates
-- how errors propagate backwards through layers
-
-Resources that helped:
-
-- [Backpropagation Video 1](https://youtu.be/i94OvYb6noo)
-- [Backpropagation Video 2](https://youtu.be/VMj-3S1tku0)
-- [MIT Backpropagation Notes](https://ocw.mit.edu/courses/9-641j-introduction-to-neural-networks-spring-2005/5d46d3b6e32a5120fe9893193c31e926_lec20_backprop.pdf)
-- [Jacobian Matrix Explanation](https://machinelearningmastery.com/a-gentle-introduction-to-the-jacobian/)
-
-A small amount of AI/LLM assistance was also used occasionally for resolving conceptual doubts and debugging issues.
-
----
-
-## Challenges Faced
-
-During training, several real implementation problems appeared, including:
-
-- Accuracy getting stuck at very low values
-- Incorrect gradient calculations
-- Activation and loss function mismatches
-- Shape and matrix alignment issues
-- Debugging exploding/incorrect updates
-
-Fixing these issues helped build a much stronger understanding of:
-- why neural networks fail to learn
-- how gradients affect optimization
-- how activations interact with loss functions
-- how small implementation mistakes completely affect training
-
----
-
-## Additional Features
-
-After training the model:
-- Random image prediction testing was implemented
-- Image visualization was added inside the notebook
-- Predictions could be visually verified against actual samples
-
-This made it easier to evaluate whether the network was genuinely learning or memorizing patterns incorrectly.
-
----
-
-## Tech Stack
-
-- Python
-- NumPy
-- Matplotlib
-- Jupyter Notebook
-
----
-
-## Project Structure
-
-```bash
-basic-neural-network-from-scratch/
-│
-├── basic-neural-network-from-scratch.ipynb
-├── prediction.png
-└── README.md
-```
-
----
-
-## How To Run
-
-Clone the repository:
-
-```bash
-git clone https://github.com/rishit836/cnn-from-scratch.git
-cd cnn-from-scratch
-```
+- Python 3.8+ recommended
+- pip packages: `numpy`, `pandas`, `matplotlib` (for notebook visualization)
 
 Install dependencies:
 
 ```bash
-pip install numpy matplotlib
-```
-
-Run the notebook:
-
-```bash
-jupyter notebook
+pip install numpy pandas matplotlib
 ```
 
 ---
 
-## Biggest Takeaway
+## How to run the training script
 
-The biggest takeaway from this project was realizing that neural networks become much easier to understand once every operation is implemented manually.
+1. Ensure the dataset CSVs are in the `dataset/` folder (the script expects `dataset/train.csv`).
+2. Run:
 
-Building everything from scratch helped develop intuition for:
-- tensor operations
-- gradient flow
-- optimization
-- debugging deep learning systems
-- the actual mathematics behind learning
+```bash
+python multilayer-perceptron.py
+```
 
-This project transformed neural networks from something “abstract” into something understandable at an implementation level.
+The script trains for a small number of epochs (default: 5) and prints per-sample progress and the aggregated loss per epoch. The network architecture and hyperparameters are defined inside the script:
+
+- Network: `MLP(nin, [64, 64, 10])`
+- Random seed: `150` (for reproducible shuffling)
+- Learning rate: `0.01` (applied as `param.data += -0.01 * param.grad`)
+
+---
+
+## Notes and caveats (current implementation)
+
+- The repo purpose is educational: the `micrograd` implementation is intentionally small and explicit.
+- The training script currently computes a dataset-level `loss` by summing per-sample scalar `Value` objects; see the script notes below for correctness improvements.
+- The script uses `train_label` (integer labels) in the loss expression — it should use one-hot labels (see `y_train`) and a proper cross-entropy loss with a softmax for correct classification training.
+- Numerical stability: softmax + log-loss should be implemented carefully (use log-sum-exp trick) when converting scores to probabilities.
+
+Suggested fixes to improve training quality:
+
+- Use the one-hot encoded `y_train` when computing loss for classification.
+- Implement `softmax` followed by cross-entropy (or combine into a stable log-softmax + NLL) instead of manually using raw `exp` sums.
+- Add a configurable learning rate and a simple training/validation loop with accuracy reporting.
+
+---
+
+## Quick file references
+
+- `multilayer-perceptron.py` — training runner (see top of file for configurable params).
+- `micrograd/grad.py` — core `Value` class and `backward()` implementation.
+- `micrograd/nn.py` — `Neuron`, `Layer`, and `MLP` classes used by the training script.
+- `basic-neural-network-from-scratch.ipynb` — notebook with visualization and exploratory code.
+
+---
+Future Plans:
+- Currently i use basic mathematical operations in python which is slow for computing but to keep it simple for now so i can actually understand the basics i did that, my aim is to convert that into tensor operations for which `Value` class i have defined will have tensors and everything will be done using numpy 
+
+- I have only implemented MLP yet, once i have optimised the `micrograd` library i will implement based on the research paper in resources folder.
