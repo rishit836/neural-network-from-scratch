@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 class Value:
     def __init__(self,data,_op='',_children=(),label=''):
         self.data = data
@@ -102,5 +103,57 @@ class Value:
         self.grad = 1.0
         for node in reversed(topo):
             node._backward()
+
+
+class Tensor:
+    def __init__(self,data:np.ndarray,_op='',_children=()):
+        self.data = np.array(data)
+        self.grad = np.zeros_like(data)
+        self._op = _op
+        self._prev = set(_children)
         
+        
+    def __repr__(self):
+        return f"Tensor(data={self.data})"
     
+    
+    # scalar + tensor
+    def __radd__(self, other):
+        return self + other
+    
+    # tensor + scalar
+    def __add__(self, other):
+    
+        """
+        the addition method for adding scalars and tensors together
+        """
+        
+        if not isinstance(other, Tensor):
+            if isinstance(other, (float,int)):
+                otherlike = np.ones_like(self.data)
+                other = otherlike * other #converting the data into list so operation can be done
+                other = Tensor(data=other)
+            else:
+                raise ValueError("please make sure the addition operation is between a tensor and a scalar or bw tensor and tensor")
+            
+            
+        out = Tensor(self.data+other.data, _op="+",_children=(self,other))
+        
+        return out
+    
+    def __mul__(self,other):
+        # element wise operation
+        if not isinstance(other,Tensor):
+            if isinstance(other, (float,int)):
+                otherlike = np.ones_like(self.data)
+                other = otherlike * other
+                other = Tensor(data = other)
+            else:
+                raise ValueError("please make sure the multiplication operation is between a tensor and a scalar or bw tensor and tensor")
+        out =Tensor(self.data*other.data, _op="*", _children=(self,other))
+        return out
+
+if __name__ == "__main__":
+    t = Tensor([1,2,3,4])
+    t1 = Tensor([1,2,3,4])
+    print(t*t1)
