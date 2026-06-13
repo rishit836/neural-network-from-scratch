@@ -105,12 +105,14 @@ class Value:
             node._backward()
 
 
+
 class Tensor:
     def __init__(self,data:np.ndarray,_op='',_children=()):
-        self.data = np.array(data)
-        self.grad = np.zeros_like(data)
+        self.data = np.array(data,dtype=np.float64)
+        self.grad = np.zeros_like(data,dtype=np.float64)
         self._op = _op
         self._prev = set(_children)
+        self._backward = lambda:None
         
         
     def __repr__(self):
@@ -127,33 +129,89 @@ class Tensor:
         """
         the addition method for adding scalars and tensors together
         """
+        # if addition is between a floating or integer.
+        if not isinstance(other, Tensor) and isinstance(other,(float,int)):
+            other = Tensor(data=other)
+            
         
-        if not isinstance(other, Tensor):
-            if isinstance(other, (float,int)):
-                otherlike = np.ones_like(self.data)
-                other = otherlike * other #converting the data into list so operation can be done
-                other = Tensor(data=other)
-            else:
-                raise ValueError("please make sure the addition operation is between a tensor and a scalar or bw tensor and tensor")
+        # if not isinstance(other, Tensor):
+        #     if isinstance(other, (float,int)):
+        #         otherlike = np.ones_like(self.data)
+        #         other = otherlike * other #converting the data into list so operation can be done
+        #         other = Tensor(data=other)
+        #     else:
+        #         raise ValueError("please make sure the addition operation is between a tensor and a scalar or bw tensor and tensor")
             
             
         out = Tensor(self.data+other.data, _op="+",_children=(self,other))
         
+        # unbroadcasting the broadcast done by numpy in forward pass 
+        def unbroadcast(out_grad,data_shape):
+            # collapsing all the rows into one by adding the corresponding columns into one.
+            if len(out_grad.shape) > len(data_shape): #checking if the number of rows are more than the data.
+                out_grad = out_grad.sum(axis=0)
+                
+            # collapsing columns into incase the shape has dimension of 1
+            for i,dim in enumerate(data_shape):
+                if dim == 1:
+                    out_grad = out_grad.sum(axis=i,keepdims=True)
+                    
+            return out_grad
+        
+        def _backward():
+            self.grad += unbroadcast(out.grad, self.data.shape)
+            other.grad += unbroadcast(out.grad, other.data.shape)
+            
+        out._backward = _backward
+        
+        
         return out
     
     def __mul__(self,other):
+        
+        # if multiplication is between a floating or integer.
+        if not isinstance(other, Tensor) and isinstance(other,(float,int)):
+            other = Tensor(data=other)
+        
         # element wise operation
-        if not isinstance(other,Tensor):
-            if isinstance(other, (float,int)):
-                otherlike = np.ones_like(self.data)
-                other = otherlike * other
-                other = Tensor(data = other)
-            else:
-                raise ValueError("please make sure the multiplication operation is between a tensor and a scalar or bw tensor and tensor")
+        # if not isinstance(other,Tensor):
+        #     if isinstance(other, (float,int)):
+        #         otherlike = np.ones_like(self.data)
+        #         other = otherlike * other
+        #         other = Tensor(data = other)
+        #     else:
+        #         raise ValueError("please make sure the multiplication operation is between a tensor and a scalar or bw tensor and tensor")
+        
         out =Tensor(self.data*other.data, _op="*", _children=(self,other))
+        
+        # unbroadcasting the broadcast done by numpy in forward pass 
+        def unbroadcast(out_grad,data_shape):
+            # collapsing all the rows into one by adding the corresponding columns into one.
+            if len(out_grad.shape) > len(data_shape): #checking if the number of rows are more than the data.
+                out_grad = out_grad.sum(axis=0)
+                
+            # collapsing columns into incase the shape has dimension of 1
+            for i,dim in enumerate(data_shape):
+                if dim == 1:
+                    out_grad = out_grad.sum(axis=i,keepdims=True)
+                    
+            return out_grad
+        
+        
+        def _backward():
+            self.grad += unbroadcast(other.data * out.grad,self.data.shape)
+            other.grad += unbroadcast(self.data * out.grad,other.data.shape)
+        
+        out._backward = _backward
+        
         return out
-
+    
 if __name__ == "__main__":
-    t = Tensor([1,2,3,4])
-    t1 = Tensor([1,2,3,4])
-    print(t*t1)
+    x = Tensor([[10,20,30],[30,10,50]])
+    b = Tensor([[5,5,5]])
+    y = x+b
+    y.grad = np.ones_like(y.data,dtype=np.float64)
+    y._backward()
+    x._backward()
+    b._backward()
+    print(b.grad)
