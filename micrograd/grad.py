@@ -104,8 +104,6 @@ class Value:
         for node in reversed(topo):
             node._backward()
 
-
-
 class Tensor:
     def __init__(self,data:np.ndarray,_op='',_children=()):
         self.data = np.array(data,dtype=np.float64)
@@ -173,15 +171,6 @@ class Tensor:
         if not isinstance(other, Tensor) and isinstance(other,(float,int)):
             other = Tensor(data=other)
         
-        # element wise operation
-        # if not isinstance(other,Tensor):
-        #     if isinstance(other, (float,int)):
-        #         otherlike = np.ones_like(self.data)
-        #         other = otherlike * other
-        #         other = Tensor(data = other)
-        #     else:
-        #         raise ValueError("please make sure the multiplication operation is between a tensor and a scalar or bw tensor and tensor")
-        
         out =Tensor(self.data*other.data, _op="*", _children=(self,other))
         
         # unbroadcasting the broadcast done by numpy in forward pass 
@@ -205,6 +194,70 @@ class Tensor:
         out._backward = _backward
         
         return out
+    
+    
+    # power
+    def __pow__(self,power):
+        assert isinstance(power, (int,float)) 
+        out = Tensor(self.data ** power, _op=f"**{power}",_children=(self,) )
+        
+        def _backward():
+            # d(nx)/dx = nx**(n-1)
+            self.grad += (power* (self.data**(power-1))) * out.grad
+        out._backward = _backward
+        
+        return out
+    
+    # division
+    
+    # self / other
+    def __truediv__(self, other):
+        other = other if isinstance(other,Tensor) else Tensor(data=other)
+        return self *(other**-1)
+    # other / self
+    def __rtruediv__(self, other):
+        other = other if isinstance(other,Tensor) else Tensor(data=other)
+        return other *(self**-1)
+    
+    
+    # exp
+    def exp(self):
+        out = Tensor(data=np.exp(self.data), _op="exp", _children=(self,))
+        def _backward():
+            self.grad += out.data*out.grad
+            
+        out._backward=_backward
+        return out
+    
+    def tanh(self):
+        x =  self.data
+        t = (np.exp(x*2)-1)/(np.exp(x*2)+1)
+        out = Tensor(data=t, _op= 'tanh',_children=(self,))
+        def _backward():
+            self.grad += (1 - t**2) * out.grad
+            
+        out._backward = _backward
+        return out
+            
+    
+    def backward(self):
+        topo = []
+        visited =set()
+        def build(node):
+            if node not in visited:
+                visited.add(node)
+                
+                for child in node._prev:
+                    build(child)
+                    
+            
+                topo.append(node)
+        self.grad = np.ones_like(self.data,dtype=np.float64)
+        build(self)
+        
+        for node in reversed(topo):
+            node._backward()
+
     
 if __name__ == "__main__":
     x = Tensor([[10,20,30],[30,10,50]])
