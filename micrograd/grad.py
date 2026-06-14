@@ -103,16 +103,25 @@ class Value:
         self.grad = 1.0
         for node in reversed(topo):
             node._backward()
+            
+            
 class Tensor:
+    
     def __init__(self,data:np.ndarray,_op='',_children=()):
+        # converting the data into a numpy array
         self.data = np.array(data,dtype=np.float64)
+        # creating the gradient array for each element in the array
         self.grad = np.zeros_like(self.data, dtype=np.float64)
+        # operation: only valid if the value is not defined and is resultant of some operation
         self._op = _op
+        # saving the child into the object creating a graph thus we can backpropagate
         self._prev = set(_children)
+        # local backward function which is None by default because value can be constant thus no default derivative
         self._backward = lambda:None
         
         
     def __repr__(self):
+        # representation string
         return f"Tensor(data={self.data})"
     
     
@@ -127,34 +136,30 @@ class Tensor:
         the addition method for adding scalars and tensors together
         """
         # if addition is between a floating or integer.
-        if not isinstance(other, Tensor) and isinstance(other,(float,int,list)):
-            other = Tensor(data=other)
-            
-        
-        # if not isinstance(other, Tensor):
-        #     if isinstance(other, (float,int)):
-        #         otherlike = np.ones_like(self.data)
-        #         other = otherlike * other #converting the data into list so operation can be done
-        #         other = Tensor(data=other)
-        #     else:
-        #         raise ValueError("please make sure the addition operation is between a tensor and a scalar or bw tensor and tensor")
-            
+        # converting the data into a tensor to have a similar data type
+        if not isinstance(other,Tensor):
+            if isinstance(other,(float,int,list)):
+                other = Tensor(data=other)
+            else:
+                raise ValueError(f"Addition can only be done between integer/float or array. [passed dtype:{type(other)}]")
             
         out = Tensor(self.data+other.data, _op="+",_children=(self,other))
         
         # unbroadcasting the broadcast done by numpy in forward pass 
         def unbroadcast(out_grad, data_shape):
-
+            # if the data has rows then we collapse the rows into one row by adding all the rows in horizontal axis.
             while len(out_grad.shape) > len(data_shape):
                 out_grad = out_grad.sum(axis=0)
 
+            # incase the desired data shape has 1 dimension we collapse that dimension thus unbroadcasting the array.
             for i, dim in enumerate(data_shape):
                 if dim == 1:
                     out_grad = out_grad.sum(axis=i, keepdims=True)
-
+                    
             return out_grad
         
         def _backward():
+            # derivative of addition is 1, we just need to convert the shape of the gradient into desired shape
             self.grad += unbroadcast(out.grad, self.data.shape)
             other.grad += unbroadcast(out.grad, other.data.shape)
             
@@ -164,37 +169,48 @@ class Tensor:
         return out
     
     # subtraction
+    # negation (conversion of the value into negative)
     def __neg__(self):
         return self * -1
-
+    # subtraction is just adding negative value and positive thus simplfying the propagation
+    # self - other
     def __sub__(self, other):
         return self + (-other)
-
+    
+    # other - self
     def __rsub__(self, other):
         return other + (-self)
     
+    # multiplication
+    # self * other
     def __mul__(self,other):
         
-        # if multiplication is between a floating or integer.
-        if not isinstance(other, Tensor) and isinstance(other,(float,int,list)):
-            other = Tensor(data=other)
+        # if multiplication is between a floating or integer or list.
+        if not isinstance(other,Tensor):
+            if isinstance(other,(float,int,list)):
+                other = Tensor(data=other)
+            else:
+                raise ValueError("Multiplication can only be done between integer/float or array. [passed dtype:{type(other)}]")
         
         out =Tensor(self.data*other.data, _op="*", _children=(self,other))
         
         # unbroadcasting the broadcast done by numpy in forward pass 
         def unbroadcast(out_grad, data_shape):
-
+            # if the data has rows then we collapse the rows into one row by adding all the rows in horizontal axis.
             while len(out_grad.shape) > len(data_shape):
                 out_grad = out_grad.sum(axis=0)
 
+            # incase the desired data shape has 1 dimension we collapse that dimension thus unbroadcasting the array.
             for i, dim in enumerate(data_shape):
                 if dim == 1:
                     out_grad = out_grad.sum(axis=i, keepdims=True)
-
+                    
             return out_grad
         
         
         def _backward():
+            # derivative is the other value in the multiplication
+            # we just convert the shape back to desired shape of the gradient
             self.grad += unbroadcast(other.data * out.grad,self.data.shape)
             other.grad += unbroadcast(self.data * out.grad,other.data.shape)
         
@@ -205,7 +221,9 @@ class Tensor:
     
     # power
     def __pow__(self,power):
-        assert isinstance(power, (int,float)) 
+        # only supporting the power of integer.
+        assert isinstance(power, (int)) 
+        
         out = Tensor(self.data ** power, _op=f"**{power}",_children=(self,) )
         
         def _backward():
@@ -238,7 +256,7 @@ class Tensor:
     
     def tanh(self):
         x =  self.data
-        t = (np.exp(x*2)-1)/(np.exp(x*2)+1)
+        t = t = np.tanh(x)
         out = Tensor(data=t, _op= 'tanh',_children=(self,))
         def _backward():
             self.grad += (1 - t**2) * out.grad
@@ -248,13 +266,11 @@ class Tensor:
     
     # Relu
     def relu(self):
-        out = Tensor(
-            np.maximum(0, self.data),
-            _op="relu",
-            _children=(self,)
-        )
+        # relu(x)=max(0,x)
+        out = Tensor(np.maximum(0, self.data),_op="relu",_children=(self,))
 
         def _backward():
+            # derivative or Relu is 1 if value is postive else 0.
             self.grad += (self.data > 0) * out.grad
 
         out._backward = _backward
@@ -263,34 +279,87 @@ class Tensor:
     
     # log
     def log(self):
-        out = Tensor(
-            np.log(self.data),
-            _op="log",
-            _children=(self,)
-        )
+        # log(x) (using default numpy operation because they fast af boi.)
+        # defining epsilion to clip the values so we dont run intpo infinite wala error.
+        eps = 1e-12
+        safe_data = np.clip(self.data, eps, None)
+        out = Tensor(np.log(safe_data),_op="log",_children=(self,))
 
         def _backward():
-            self.grad += (1/self.data) * out.grad
+            # derivative of log(x) is 1/x
+            self.grad += (1/safe_data) * out.grad
 
         out._backward = _backward
 
         return out
     
-    def sum(self):
-        out =Tensor(np.sum(self.data), _op='sum', _children=(self,))
+    # SOFTMAX
+    def softmax(self):
+        # shifted the data points towards 0. thus power/exponation is not very large thus it wont explode numerically.
+        axis = 1 if self.data.ndim > 1 else 0
+        shifted = self.data - np.max(self.data, axis=axis, keepdims=True)
+        # finding e^x
+        exp = np.exp(shifted)
+        # finding probabilities.
+        probs = exp/np.sum(exp, axis=axis, keepdims=True)
+        
+
+        out = Tensor(probs, _op="softmax",_children=(self,))
+        
         
         def _backward():
-            # addition has a derivative of 1. thus 1+ 1+ 1+ 1+ 1....
-            self.grad += np.ones_like(self.data) *out.grad
-        
+            
+            g = out.grad
+            s = out.data
+            # using formula used in pytorch libaries to save on time complexity to N for N^2
+            self.grad += s * (g - np.sum(g * s, axis=axis, keepdims=True))
+            
         out._backward = _backward
         
         return out
+    
+    def sum(self, axis=None, keepdims=False):
+        """
+        np.sum() but had to explicitly code this because we need to store the graph relations between each value 
+        for calculating gradient and when we directly use np.sum() the shape of the resultant matrix is determined
+        by numpy internally but while backward pass we need the original shape thus doing it manually.
+        """
+        
+        out = Tensor(np.sum(self.data,axis=axis,keepdims=keepdims), _op="sum",_children=(self,))
+
+        def _backward():
+            grad = out.grad
+            # this checks if while summation any axis was removed.
+            if axis is not None and not keepdims:
+                # if dimensions were removed while summation
+                if isinstance(axis, int):
+                    # convert the axis into a tuple for numpy
+                    axes = (axis,)
+                else:
+                    axes = axis
+
+                # reinstert the deleted dimension in the axis it was removed
+                for ax in sorted(axes):
+                    grad = np.expand_dims(
+                        grad,
+                        axis=ax
+                    )
+            # accumalting the gradients.
+            self.grad += np.broadcast_to(
+                grad,
+                self.data.shape
+            )
+
+        out._backward = _backward
+
+        return out
             
-            
+    # implementing the matrix multiplication so we can directly implement the layer class.
     def __matmul__(self, other):
+        # forward pass relies on numpy for faster compute.
         out = Tensor(self.data@other.data,_op="@", _children=(self,other))
         def _backward():
+            # relying on wikipedia formula for derivative idk about this one. :-)
             self.grad += out.grad @ other.data.T
             other.grad += self.data.T @ out.grad
             
@@ -298,6 +367,9 @@ class Tensor:
         
         return out
     
+    
+    # backpropagation
+    # build a topo sort and then reverses it so we can propagate the tensors.
     def backward(self): 
         topo = []
         visited =set()
@@ -315,6 +387,26 @@ class Tensor:
         
         for node in reversed(topo):
             node._backward()
+    
+    
+    # resetting the gradient in training loop made the code untidy thus implemented this a faster one line code.
+    def reset_gradients(self):
+        topo = []
+        visited =set()
+        def build(node):
+            if node not in visited:
+                visited.add(node)
+                
+                for child in node._prev:
+                    build(child)
+                    
+            
+                topo.append(node)
+
+        build(self)
+        
+        for node in reversed(topo):
+            node.grad = np.zeros_like(node.data,dtype=np.float64)
 
 
     

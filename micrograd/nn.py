@@ -51,25 +51,32 @@ class MLP_value:
     
 class Layer:
     def __init__(self, nin, nout):
-        self.W = Tensor(np.random.randn(nin, nout))
+        # LeCunn Initialization in the Layer Class
+        self.W = Tensor(np.random.randn(nin, nout) * np.sqrt(1 / nin))
         self.b = Tensor(np.zeros((1, nout)))
 
     def __call__(self, x):
-        return (x @ self.W + self.b).tanh()
+        # y = wx + b
+        return x @ self.W + self.b
     
     def parameters(self):
         return [self.W,self.b]
     
 class MLP:
     def __init__(self, nin, nouts):
-        # creating a list of layer sizes
         sz = [nin] + nouts
-
-        self.layers = [Layer(sz[i], sz[i+1])for i in range(len(nouts))]
+        self.layers = [
+            Layer(sz[i], sz[i+1])
+            for i in range(len(nouts))
+        ]
 
     def __call__(self, x):
-        for layer in self.layers:
-            x = layer(x)
+
+        for layer in self.layers[:-1]:
+            x = layer(x).tanh()
+
+        x = self.layers[-1](x)
+
         return x
 
     def parameters(self):
@@ -80,8 +87,30 @@ class MLP:
 
         return params
     
-  
-    
+class ClassifcationNN:
+    def __init__(self,nin,nouts):
+        sz = [nin] + nouts
+        self.layers = [Layer(sz[i],sz[i+1]) for i in range(len(nouts))]
+        
+    def __call__(self, x):
+        
+        for idx,layer in enumerate(self.layers):
+            # last layer has softmax
+            if idx+1 == len(self.layers):
+                x = layer(x).softmax()
+            else:
+                x = layer(x).tanh()
+        
+        return x
+
+    def parameters(self):
+        params = []
+
+        for layer in self.layers:
+            params.extend(layer.parameters())
+
+        return params
+
 if __name__=='__main__':
     mlp = MLP(3, [4, 4, 1])
 
