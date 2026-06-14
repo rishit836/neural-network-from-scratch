@@ -128,7 +128,7 @@ class Tensor:
         the addition method for adding scalars and tensors together
         """
         # if addition is between a floating or integer.
-        if not isinstance(other, Tensor) and isinstance(other,(float,int)):
+        if not isinstance(other, Tensor) and isinstance(other,(float,int,list)):
             other = Tensor(data=other)
             
         
@@ -168,7 +168,7 @@ class Tensor:
     def __mul__(self,other):
         
         # if multiplication is between a floating or integer.
-        if not isinstance(other, Tensor) and isinstance(other,(float,int)):
+        if not isinstance(other, Tensor) and isinstance(other,(float,int,list)):
             other = Tensor(data=other)
         
         out =Tensor(self.data*other.data, _op="*", _children=(self,other))
@@ -257,6 +257,7 @@ class Tensor:
         
         for node in reversed(topo):
             node._backward()
+
 
     
 if __name__ == "__main__":
