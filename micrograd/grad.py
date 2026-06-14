@@ -103,11 +103,10 @@ class Value:
         self.grad = 1.0
         for node in reversed(topo):
             node._backward()
-
 class Tensor:
     def __init__(self,data:np.ndarray,_op='',_children=()):
         self.data = np.array(data,dtype=np.float64)
-        self.grad = np.zeros_like(data,dtype=np.float64)
+        self.grad = np.zeros_like(self.data, dtype=np.float64)
         self._op = _op
         self._prev = set(_children)
         self._backward = lambda:None
@@ -144,16 +143,15 @@ class Tensor:
         out = Tensor(self.data+other.data, _op="+",_children=(self,other))
         
         # unbroadcasting the broadcast done by numpy in forward pass 
-        def unbroadcast(out_grad,data_shape):
-            # collapsing all the rows into one by adding the corresponding columns into one.
-            if len(out_grad.shape) > len(data_shape): #checking if the number of rows are more than the data.
+        def unbroadcast(out_grad, data_shape):
+
+            while len(out_grad.shape) > len(data_shape):
                 out_grad = out_grad.sum(axis=0)
-                
-            # collapsing columns into incase the shape has dimension of 1
-            for i,dim in enumerate(data_shape):
+
+            for i, dim in enumerate(data_shape):
                 if dim == 1:
-                    out_grad = out_grad.sum(axis=i,keepdims=True)
-                    
+                    out_grad = out_grad.sum(axis=i, keepdims=True)
+
             return out_grad
         
         def _backward():
@@ -165,6 +163,16 @@ class Tensor:
         
         return out
     
+    # subtraction
+    def __neg__(self):
+        return self * -1
+
+    def __sub__(self, other):
+        return self + (-other)
+
+    def __rsub__(self, other):
+        return other + (-self)
+    
     def __mul__(self,other):
         
         # if multiplication is between a floating or integer.
@@ -174,16 +182,15 @@ class Tensor:
         out =Tensor(self.data*other.data, _op="*", _children=(self,other))
         
         # unbroadcasting the broadcast done by numpy in forward pass 
-        def unbroadcast(out_grad,data_shape):
-            # collapsing all the rows into one by adding the corresponding columns into one.
-            if len(out_grad.shape) > len(data_shape): #checking if the number of rows are more than the data.
+        def unbroadcast(out_grad, data_shape):
+
+            while len(out_grad.shape) > len(data_shape):
                 out_grad = out_grad.sum(axis=0)
-                
-            # collapsing columns into incase the shape has dimension of 1
-            for i,dim in enumerate(data_shape):
+
+            for i, dim in enumerate(data_shape):
                 if dim == 1:
-                    out_grad = out_grad.sum(axis=i,keepdims=True)
-                    
+                    out_grad = out_grad.sum(axis=i, keepdims=True)
+
             return out_grad
         
         
@@ -238,9 +245,60 @@ class Tensor:
             
         out._backward = _backward
         return out
-            
     
-    def backward(self):
+    # Relu
+    def relu(self):
+        out = Tensor(
+            np.maximum(0, self.data),
+            _op="relu",
+            _children=(self,)
+        )
+
+        def _backward():
+            self.grad += (self.data > 0) * out.grad
+
+        out._backward = _backward
+
+        return out
+    
+    # log
+    def log(self):
+        out = Tensor(
+            np.log(self.data),
+            _op="log",
+            _children=(self,)
+        )
+
+        def _backward():
+            self.grad += (1/self.data) * out.grad
+
+        out._backward = _backward
+
+        return out
+    
+    def sum(self):
+        out =Tensor(np.sum(self.data), _op='sum', _children=(self,))
+        
+        def _backward():
+            # addition has a derivative of 1. thus 1+ 1+ 1+ 1+ 1....
+            self.grad += np.ones_like(self.data) *out.grad
+        
+        out._backward = _backward
+        
+        return out
+            
+            
+    def __matmul__(self, other):
+        out = Tensor(self.data@other.data,_op="@", _children=(self,other))
+        def _backward():
+            self.grad += out.grad @ other.data.T
+            other.grad += self.data.T @ out.grad
+            
+        out._backward = _backward
+        
+        return out
+    
+    def backward(self): 
         topo = []
         visited =set()
         def build(node):
