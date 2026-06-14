@@ -1,7 +1,11 @@
-from .grad import Value
+from .grad import Value,Tensor
 import random
+import numpy as np
 
-class Neuron:
+
+
+class Neuron_value:
+    "deprecated uses basic python operations which is slow."
     def __init__(self,nin):
         self.w = [Value(random.uniform(-1,1)) for _ in range(nin)]
         self.b = Value(random.uniform(-1,1))
@@ -14,9 +18,10 @@ class Neuron:
     def parameters(self):
         return self.w+[self.b]
     
-class Layer:
+class Layer_value:
+    "deprecated uses basic python operations which is slow."
     def __init__(self,nin,nout):
-        self.neurons = [Neuron(nin) for _ in range(nout)]
+        self.neurons = [Neuron_value(nin) for _ in range(nout)]
     
     def __call__(self,x):
         outs = [n(x) for n in self.neurons]
@@ -25,7 +30,8 @@ class Layer:
     def parameters(self):
         return [p for neuron in self.neurons for p in neuron.parameters()]
     
-class MLP:
+class MLP_value:
+    "deprecated uses basic python operations which is slow."
     def __init__(self,nin,nouts): 
         '''
         nin: number of inputs to the neural network
@@ -33,7 +39,7 @@ class MLP:
                a neural network containing 2 hidden layer with 2 neurons each and one output
         '''
         sz = [nin] + nouts
-        self.layers = [Layer(sz[i],sz[i+1]) for i in range(len(nouts))]
+        self.layers = [Layer_value(sz[i],sz[i+1]) for i in range(len(nouts))]
     
     def __call__(self,x):
         for layer in self.layers:
@@ -43,9 +49,41 @@ class MLP:
     def parameters(self):
         return [p for layer in self.layers for p in layer.parameters()]
     
+class Layer:
+    def __init__(self, nin, nout):
+        self.W = Tensor(np.random.randn(nin, nout))
+        self.b = Tensor(np.zeros((1, nout)))
+
+    def __call__(self, x):
+        return (x @ self.W + self.b).tanh()
     
+    def parameters(self):
+        return [self.W,self.b]
+    
+class MLP:
+    def __init__(self, nin, nouts):
+        # creating a list of layer sizes
+        sz = [nin] + nouts
+
+        self.layers = [Layer(sz[i], sz[i+1])for i in range(len(nouts))]
+
+    def __call__(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
+    def parameters(self):
+        params = []
+
+        for layer in self.layers:
+            params.extend(layer.parameters())
+
+        return params
+    
+  
     
 if __name__=='__main__':
-    x=[2.0,3.0]
-    n=MLP(2,[2,2,1])
-    print(n.parameters())
+    mlp = MLP(3, [4, 4, 1])
+
+    for p in mlp.parameters():
+        print(p.data.shape)
