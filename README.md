@@ -1,24 +1,103 @@
-# Neural Network From Scratch (micrograd + MLP example)
+# Neural Network From Scratch: micrograd to NumPy Tensors
 
-This repository contains a small-from-scratch neural network toolkit using a tiny autograd implementation (micrograd-style) and a simple multilayer perceptron (MLP) training example. It is intended for learning and experimentation rather than production use.
+This project is a from-scratch neural-network playground built around a small
+micrograd-style autodiff engine. It started with scalar `Value` objects for
+learning backpropagation step by step, then evolved into a faster NumPy-backed
+`Tensor` engine that can train a batched MNIST-style digit classifier.
+
+The goal is educational: keep every part of forward propagation, automatic
+differentiation, and training visible, while still making the implementation
+fast enough to run useful experiments.
 
 ---
 
-## What’s in this repo
+## Results
 
-- `multilayer-perceptron.py` — training script that uses the `micrograd` package to train a small MLP on image data from `dataset/train.csv`.
-- `basic-neural-network-from-scratch.ipynb` — notebook with exploratory code and visualizations.
-- `micrograd/` — minimal autograd implementation:
-	- `micrograd/grad.py` — `Value` class with forward ops and backward pass.
-	- `micrograd/nn.py` — `Neuron`, `Layer`, and `MLP` convenience classes built on top of `Value`.
-- `dataset/` — contains `train.csv` and `test.csv` expected by the training script.
+The current classifier trains on the CSV image dataset in `dataset/train.csv`
+using an 80:20 train/test split.
+
+![Prediction results](resources/prediction.png)
+
+---
+
+## What's in this repo
+
+- `train.py` - current training script for the optimized tensor-based
+  classifier.
+- `micrograd/grad.py` - core autodiff code:
+  - `Value`: original scalar micrograd implementation.
+  - `Tensor`: optimized NumPy-backed autodiff class for arrays and batches.
+- `micrograd/nn.py` - neural-network building blocks:
+  - deprecated scalar `Neuron_value`, `Layer_value`, and `MLP_value`.
+  - tensor-based `Layer`, `MLP`, and `ClassifcationNN`.
+- `resources/prediction.png` - saved prediction/result image.
+- `basic-neural-network-from-scratch.ipynb` - exploratory notebook and
+  visualizations.
+- `multilayer-perceptron.py` - older MLP experiment using the original
+  micrograd-style flow.
+- `dataset/` - expected location for `train.csv` and `test.csv`.
+
+---
+
+## What changed in micrograd
+
+The original version used scalar `Value` objects and plain Python arithmetic.
+That made the mechanics of backpropagation easy to understand, but it was very
+slow for image classification because every input, weight, and operation had to
+be handled one value at a time.
+
+The optimized version adds a `Tensor` class that stores data and gradients as
+NumPy arrays:
+
+- vectorized addition, subtraction, multiplication, division, powers, and
+  exponentials.
+- matrix multiplication with `@`, which makes dense layers much faster.
+- broadcasting-aware backward passes using an `unbroadcast` step so gradients
+  return to the correct original shapes.
+- batched gradients, so the model can train on many samples at once.
+- `tanh`, `relu`, `log`, `softmax`, and `sum` operations with custom backward
+  functions.
+- stable softmax using shifted logits before exponentiation.
+- graph-based `backward()` with topological sorting, just like the scalar
+  micrograd implementation.
+- `reset_gradients()` to clear gradients across the computation graph before
+  each backward pass.
+
+The older scalar classes are still kept in the code as deprecated references,
+which makes it easier to compare the simple version against the optimized one.
+
+---
+
+## Current model and training setup
+
+`train.py` trains a digit classifier with:
+
+- input size: `784` pixels.
+- architecture: `ClassifcationNN(784, [64, 64, 10])`.
+- hidden activations: `tanh`.
+- output activation: `softmax`.
+- initialization: LeCun-style weight scaling with `sqrt(1 / nin)`.
+- loss: average cross-entropy using one-hot labels and `probs.log()`.
+- optimizer: manual gradient descent.
+- epochs: `30`.
+- batch size: `128`.
+- split: shuffled 80 percent training and 20 percent testing.
+- seed: NumPy random generator seeded with `150`.
+- reporting: average loss, train accuracy, test accuracy, and learning rate
+  every epoch.
+
+The training loop now works in batches instead of sample by sample, which is the
+main practical speedup. Most heavy math is handled by NumPy while the autodiff
+graph and gradient rules remain implemented manually.
 
 ---
 
 ## Requirements
 
-- Python 3.8+ recommended
-- pip packages: `numpy`, `pandas`, `matplotlib` (for notebook visualization)
+- Python 3.8+
+- `numpy`
+- `pandas`
+- `matplotlib` for notebook visualization
 
 Install dependencies:
 
@@ -28,47 +107,50 @@ pip install numpy pandas matplotlib
 
 ---
 
-## How to run the training script
+## How to train
 
-1. Ensure the dataset CSVs are in the `dataset/` folder (the script expects `dataset/train.csv`).
-2. Run:
+Make sure the dataset files are available in `dataset/`, then run:
 
 ```bash
-python multilayer-perceptron.py
+python train.py
 ```
 
-The script trains for a small number of epochs (default: 5) and prints per-sample progress and the aggregated loss per epoch. The network architecture and hyperparameters are defined inside the script:
-
-- Network: `MLP(nin, [64, 64, 10])`
-- Random seed: `150` (for reproducible shuffling)
-- Learning rate: `0.01` (applied as `param.data += -0.01 * param.grad`)
+The script loads `dataset/train.csv`, normalizes pixel values to the `0-1`
+range, shuffles the dataset, trains the classifier, and prints the final train
+and test accuracy.
 
 ---
 
-## Notes and caveats (current implementation)
+## Implementation notes
 
-- The repo purpose is educational: the `micrograd` implementation is intentionally small and explicit.
-- The training script currently computes a dataset-level `loss` by summing per-sample scalar `Value` objects; see the script notes below for correctness improvements.
-- The script uses `train_label` (integer labels) in the loss expression — it should use one-hot labels (see `y_train`) and a proper cross-entropy loss with a softmax for correct classification training.
-- Numerical stability: softmax + log-loss should be implemented carefully (use log-sum-exp trick) when converting scores to probabilities.
+- The project intentionally avoids PyTorch, TensorFlow, or JAX so the autodiff
+  mechanics stay visible.
+- The scalar `Value` path is useful for understanding the basics, but the
+  tensor path is the one used for the current classifier.
+- Softmax is implemented inside the custom `Tensor` class instead of relying on
+  a framework loss function.
+- Cross-entropy is built from the existing tensor operations:
 
-Suggested fixes to improve training quality:
+```python
+loss = -(y_true * probs.log()).sum()
+loss = loss / len(xb)
+```
 
-- Use the one-hot encoded `y_train` when computing loss for classification.
-- Implement `softmax` followed by cross-entropy (or combine into a stable log-softmax + NLL) instead of manually using raw `exp` sums.
-- Add a configurable learning rate and a simple training/validation loop with accuracy reporting.
+- Parameters are updated manually:
+
+```python
+for p in net.parameters():
+    p.data -= learning_rate * p.grad
+```
 
 ---
 
-## Quick file references
+## Future plans
 
-- `multilayer-perceptron.py` — training runner (see top of file for configurable params).
-- `micrograd/grad.py` — core `Value` class and `backward()` implementation.
-- `micrograd/nn.py` — `Neuron`, `Layer`, and `MLP` classes used by the training script.
-- `basic-neural-network-from-scratch.ipynb` — notebook with visualization and exploratory code.
-
----
-Future Plans:
-- Currently i use basic mathematical operations in python which is slow for computing but to keep it simple for now so i can actually understand the basics i did that, my aim is to convert that into tensor operations for which `Value` class i have defined will have tensors and everything will be done using numpy 
-
-- I have only implemented MLP yet, once i have optimised the `micrograd` library i will implement based on the research paper in resources folder.
+- clean up the learning-rate decay formula and make training hyperparameters
+  easier to configure.
+- add helper methods for optimization steps so the training loop is cleaner.
+- save and load trained weights.
+- add prediction visualization directly to the training/evaluation workflow.
+- continue extending the optimized micrograd library before moving toward CNN
+  experiments.

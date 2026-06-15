@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
-
+import math
 from micrograd.nn import MLP,ClassifcationNN
 from micrograd.grad import Tensor
+import pickle
 
 # loading the dataset
 
@@ -44,22 +45,22 @@ y_train = np.eye(10)[train_label]
 test_labels = np.eye(10)[test_label]
 
 
-# =====================================
-# Model
-# =====================================
+# model
 
 net = ClassifcationNN(
     784,
     [64, 64, 10]
 )
 
-# =====================================
-# Hyperparameters
-# =====================================
+# hyperparameter
 
-epochs = 20
+epochs = 30
 batch_size =128
-learning_rate = 0.1
+
+# cosine learning decay
+initial_learning_rate = 0.1
+min_learning_rate = .035
+
 
 
 def accuracy(model, x_data, y_labels, eval_batch_size=512):
@@ -77,12 +78,10 @@ def accuracy(model, x_data, y_labels, eval_batch_size=512):
     return correct / len(x_data)
 
 
-# =====================================
-# Training Loop
-# =====================================
+# training loop
 
+learning_rate = initial_learning_rate
 for epoch in range(epochs):
-
     permutation = rng.permutation(len(train_data))
 
     epoch_loss = 0.0
@@ -97,10 +96,8 @@ for epoch in range(epochs):
         xb = train_data[batch_idx]
         yb = y_train[batch_idx]
 
-        # --------------------------
-        # Forward
-        # --------------------------
-
+        # forward
+        
         x = Tensor(xb)
 
         probs = net(x)
@@ -111,32 +108,34 @@ for epoch in range(epochs):
         loss = -(y_true * probs.log()).sum()
         loss = loss / len(xb)
 
+        # reset the gradients implemented in micrograd.
         loss.reset_gradients()
 
-        # --------------------------
-        # Backward
-        # --------------------------
-
+        # backward pass which is implemented in micrograd
         loss.backward()
-
-
+        
+        # TODO: to implement this as a function in neural network class.
         for p in net.parameters():
             p.data -= learning_rate * p.grad
 
         epoch_loss += float(loss.data)
         num_batches += 1
-
-   
+        
     avg_loss = epoch_loss / num_batches
     train_accuracy = accuracy(net, train_data, train_label)
     test_accuracy = accuracy(net, test_data, test_label)
-
     print(
         f"Epoch {epoch+1:02d}/{epochs} | "
         f"Loss: {avg_loss:.4f} | "
         f"Train Acc: {train_accuracy * 100:.2f}% | "
-        f"Test Acc: {test_accuracy * 100:.2f}%"
+        f"Test Acc: {test_accuracy * 100:.2f}% |"
+        f"Learning Rate: {learning_rate}"
     )
+    # learning rate decay so we dont overfit over the data.
+    # cosine Decay
+    # lr = lr_min + 0.5 * (lr_initial - lr_min) * (1 + cos((T_cur / T_max) * pi))
+    learning_rate = initial_learning_rate +(.5*(initial_learning_rate - min_learning_rate))*(1 + math.cos((epoch+1/epochs)))
+    
 
 
 final_train_accuracy = accuracy(net, train_data, train_label)
