@@ -221,8 +221,8 @@ class Tensor:
     
     # power
     def __pow__(self,power):
-        # only supporting the power of integer.
-        assert isinstance(power, (int)) 
+        # only supporting the power of integer or float.
+        assert isinstance(power, (int,float)) 
         
         out = Tensor(self.data ** power, _op=f"**{power}",_children=(self,) )
         
@@ -408,14 +408,145 @@ class Tensor:
         for node in reversed(topo):
             node.grad = np.zeros_like(node.data,dtype=np.float64)
 
+    
+    def to_numpy(self):
+        return self.data
+    
+    # reshaping the gradient
+    def reshape(self,size:tuple):
+        
+        # storing the orignal shape so we can reshape the gradients back to orignal
+        orignal_shape = self.data.shape
+        
+        # reshaping the matrix and converting it to tensor
+        reshaped_matrix = np.reshape(self.data, size)
+        out = Tensor(reshaped_matrix, _op="reshape", _children=(self,))
+        
+        def _backward():
+            # derivative is 1.0 thus just passing the gradients backwards after reshaping as it is.
+            self.grad+= np.reshape(out.grad, orignal_shape) # we just pass the gradients from reshaped size to original size
+        
+        out._backward = _backward
+        return out
+        
+    # slicing
+    def __getitem__(self, idx):
+        
+        out = self.data[idx]
+        
+        out = Tensor(out,_children=(self,),_op="slicing")
+        
+        def _backward():
+            
+            grad = np.zeros_like(self.data)
+            # slicing operation has derivative of 1. thus we just pass the gradient from the next layer backwards as it is for the element which were actually effected after slicing.
+            grad[idx] += out.grad
+            
+            # accumalate the gradients.
+            self.grad += grad
+        
+        out._backward = _backward
+        
+        return out
+    
+    # transpose
+    def transpose(self,axes=None):
+        out =Tensor(np.transpose(self.data, axes), _children=(self,), _op ="transpose")
+        
+        def _backward():
+            # sorting the axes and getting their indices after sorting
+            inverse = np.argsort(axes)
+            # transposing the gradient to orignal gradient size. and as the derivative is 1.0 we just pass it backwards and accumalate it.
+            self.grad += np.transpose(
+                out.grad,
+                inverse
+            )
+                    
+                    
+        out._backward= _backward
+        
+        return out
 
+    # mean
+    def mean(self,axis=None, keepdims=False):
+        if axis is None:
+            count = self.data.size
+        
+        elif isinstance(axis,int):
+            count = self.data.shape[axis]
+        else:
+            count = 1
+            for ax in axis:
+                count *= self.data.shape[ax]
+            
+            
+        return self.sum(axis, keepdims=keepdims)/count
+    
+    # stack
+    @staticmethod
+    def stack(tensors,axis=0):
+        data = np.stack([t.data for t in tensors],axis=axis)
+        
+        out =Tensor(data,_op="stack",_children=tuple(tensors))
+        
+        
+        def _backward():
+            for i,t in enumerate(tensors):
+                grad = np.take(out.grad, i,axis=axis)
+                
+                t.grad += grad
+        
+        out._backward = _backward
+        
+        return out
+    
+    def max(self):
+
+        max_val = np.max(self.data)
+
+        out = Tensor(
+            max_val,
+            _op="max",
+            _children=(self,)
+        )
+
+        def _backward():
+
+            mask = self.data == max_val
+
+            count = np.sum(mask)
+
+            self.grad += (mask / count) * out.grad
+
+        out._backward = _backward
+
+        return out
+    
+    def min(self):
+
+        min_val = np.min(self.data)
+
+        out = Tensor(
+            min_val,
+            _op="min",
+            _children=(self,)
+        )
+
+        def _backward():
+            mask = self.data == min_val
+
+            count = np.sum(mask)
+
+            self.grad += (mask / count) * out.grad
+
+        out._backward = _backward
+
+        return out
+        
+        
+         
     
 if __name__ == "__main__":
-    x = Tensor([[10,20,30],[30,10,50]])
-    b = Tensor([[5,5,5]])
-    y = x+b
-    y.grad = np.ones_like(y.data,dtype=np.float64)
-    y._backward()
-    x._backward()
-    b._backward()
-    print(b.grad)
+    
+    print("This is not a production level library. This was just a basic implementation as a learning experience.")
+    print("refer to the github for more info, if you want you can use it for basic models.")
