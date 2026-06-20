@@ -1,4 +1,4 @@
-from micrograd.nn import MLP
+from ScratchTorch.nn import MLP
 import pandas as pd
 import numpy as np
 
@@ -14,7 +14,7 @@ features = data[colmns].to_numpy() / 255
 labels = data['label'].to_numpy()
 
 nin = len(features[0]) # num of inputs to neural network
-features = features[:500] # for testing purpose the training is being done on 500 samples after optimisation of micrograd library i will try on full dataset.
+features = features[:500] # for testing purpose the training is being done on 500 samples after optimisation of ScratchTorch library i will try on full dataset.
 
 # Shuffle the rows once so the split is random but still reproducible.
 rng = np.random.default_rng(150)

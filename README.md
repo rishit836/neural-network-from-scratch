@@ -1,7 +1,7 @@
-# Neural Network From Scratch: micrograd to NumPy Tensors
+# Neural Network From Scratch: ScratchTorch to NumPy Tensors
 
 This project is a from-scratch neural-network playground built around a small
-micrograd-style autodiff engine. It started with scalar `Value` objects for
+ScratchTorch-style autodiff engine. It started with scalar `Value` objects for
 learning backpropagation step by step, then evolved into a faster NumPy-backed
 `Tensor` engine that can train a batched MNIST-style digit classifier.
 
@@ -24,22 +24,22 @@ using an 80:20 train/test split.
 
 - `train.py` - current training script for the optimized tensor-based
   classifier.
-- `micrograd/grad.py` - core autodiff code:
-  - `Value`: original scalar micrograd implementation.
+- `ScratchTorch/grad.py` - core autodiff code:
+  - `Value`: original scalar ScratchTorch implementation.
   - `Tensor`: optimized NumPy-backed autodiff class for arrays and batches.
-- `micrograd/nn.py` - neural-network building blocks:
+- `ScratchTorch/nn.py` - neural-network building blocks:
   - deprecated scalar `Neuron_value`, `Layer_value`, and `MLP_value`.
   - tensor-based `Layer`, `MLP`, and `ClassifcationNN`.
 - `resources/prediction.png` - saved prediction/result image.
 - `basic-neural-network-from-scratch.ipynb` - exploratory notebook and
   visualizations.
 - `multilayer-perceptron.py` - older MLP experiment using the original
-  micrograd-style flow.
+  ScratchTorch-style flow.
 - `dataset/` - expected location for `train.csv` and `test.csv`.
 
 ---
 
-## What changed in micrograd
+## What changed in ScratchTorch
 
 The original version used scalar `Value` objects and plain Python arithmetic.
 That made the mechanics of backpropagation easy to understand, but it was very
@@ -59,7 +59,7 @@ NumPy arrays:
   functions.
 - stable softmax using shifted logits before exponentiation.
 - graph-based `backward()` with topological sorting, just like the scalar
-  micrograd implementation.
+  ScratchTorch implementation.
 - `reset_gradients()` to clear gradients across the computation graph before
   each backward pass.
 
@@ -152,5 +152,5 @@ for p in net.parameters():
 - add helper methods for optimization steps so the training loop is cleaner.
 - save and load trained weights.
 - add prediction visualization directly to the training/evaluation workflow.
-- continue extending the optimized micrograd library before moving toward CNN
+- continue extending the optimized ScratchTorch library before moving toward CNN
   experiments.

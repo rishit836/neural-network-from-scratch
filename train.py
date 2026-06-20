@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import math
-from micrograd.nn import MLP,ClassifcationNN
-from micrograd.grad import Tensor
+from ScratchTorch.nn import MLP,ClassifcationNN
+from ScratchTorch.grad import Tensor
 import pickle
 
 # loading the dataset
@@ -21,7 +21,7 @@ features = data[colmns].to_numpy() / 255
 labels = data['label'].to_numpy()
 
 nin = len(features[0]) # num of inputs to neural network
-# features = features[:500] # for testing purpose the training is being done on 500 samples after optimisation of micrograd library i will try on full dataset.
+# features = features[:500] # for testing purpose the training is being done on 500 samples after optimisation of ScratchTorch library i will try on full dataset.
 
 # Shuffle the rows once so the split is random but still reproducible.
 rng = np.random.default_rng(150)
@@ -108,10 +108,10 @@ for epoch in range(epochs):
         loss = -(y_true * probs.log()).sum()
         loss = loss / len(xb)
 
-        # reset the gradients implemented in micrograd.
+        # reset the gradients implemented in ScratchTorch.
         loss.reset_gradients()
 
-        # backward pass which is implemented in micrograd
+        # backward pass which is implemented in ScratchTorch
         loss.backward()
         
         # TODO: to implement this as a function in neural network class.
