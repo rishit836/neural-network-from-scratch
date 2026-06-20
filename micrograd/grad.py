@@ -545,31 +545,61 @@ class Tensor:
     
     # convolution for grayscale image
     def conv2d(self, kernel):
+        
+        # checking if the image is grayscale or not
+        if len(self.data.shape) != 2:
+            raise ValueError(f"Conv2d is for grayscale images only.")
+        
+        # checking if the kernel object is tensor object or not.
         if not isinstance(kernel, (Tensor)):
             raise ValueError(f"Kernel should be a tensor. not dtype: {type(kernel)}. ")
         
-        W,H = self.data.shape
+        # getting Width and Height of the IMAGE as the the image is grayscale
+        H,W = self.data.shape
         k = kernel.data.shape[0]
         
+        # getting the height and width of the output
         out_h = H - k + 1
         out_w = W - k + 1
         
+        # row tensor stack.
         rows = []
         
         for i in range(out_h):
             cols = []
             for j in range(out_w):
+                
+                # slicing the patch out of the image
                 patch = self[i:i+k,j:j+k]
+                # saving the result in temp because that just helps me what actually is happening rather than just wrapping it one line.
                 temp  =(patch*kernel)
+                # calculating the pixel value after applying the kernel/filter
                 pixel = temp.sum()
+                
                 cols.append(pixel)
                 
             row_tensor = Tensor.stack(cols)
             rows.append(row_tensor)
-        
+        # stacking the tensors of the rows into one.
         output = Tensor.stack(rows,0)
             
         return output
+    
+    def normalize_image_array(self):
+        # getting the numpy array for the image
+        img_data = self.data
+
+        # shifting the array values to have minimum as zero
+        img_data = img_data - img_data.min()
+        # normalizing the the values in the array to have max as one
+        img_data = img_data / (img_data.max() + 1e-8) # adding 1e-8 js to prevent zero division error
+
+        # converting the image array to image with multiplying with 255, to display the image.
+        img_data = (img_data * 255).astype(np.uint8)
+        
+        
+        return img_data
+        
 
             
                 
