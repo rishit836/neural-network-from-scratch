@@ -542,6 +542,38 @@ class Tensor:
         out._backward = _backward
 
         return out
+    
+    # convolution for grayscale image
+    def conv2d(self, kernel):
+        if not isinstance(kernel, (Tensor)):
+            raise ValueError(f"Kernel should be a tensor. not dtype: {type(kernel)}. ")
+        
+        W,H = self.data.shape
+        k = kernel.data.shape[0]
+        
+        out_h = H - k + 1
+        out_w = W - k + 1
+        
+        rows = []
+        
+        for i in range(out_h):
+            cols = []
+            for j in range(out_w):
+                patch = self[i:i+k,j:j+k]
+                temp  =(patch*kernel)
+                pixel = temp.sum()
+                cols.append(pixel)
+                
+            row_tensor = Tensor.stack(cols)
+            rows.append(row_tensor)
+        
+        output = Tensor.stack(rows,0)
+            
+        return output
+
+            
+                
+        
         
         
          
