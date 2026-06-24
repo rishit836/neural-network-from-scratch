@@ -49,24 +49,37 @@ class MLP_value:
     def parameters(self):
         return [p for layer in self.layers for p in layer.parameters()]
     
-class Layer:
+class Dense:
     def __init__(self, nin, nout):
         # LeCunn Initialization in the Layer Class
         self.W = Tensor(np.random.randn(nin, nout) * np.sqrt(1 / nin))
         self.b = Tensor(np.zeros((1, nout)))
+        self.activation = 'tanh'
 
     def __call__(self, x):
         # y = wx + b
-        return x @ self.W + self.b
+        y = x @ self.W + self.b
+        if self.activation == 'softmax':
+            return y.softmax()
+        else:
+            return y.tanh()
     
     def parameters(self):
         return [self.W,self.b]
+    
+    def set_activation_function(self,activation):
+        self.activation = activation
+        return self
+    
+    
+
+            
     
 class MLP:
     def __init__(self, nin, nouts):
         sz = [nin] + nouts
         self.layers = [
-            Layer(sz[i], sz[i+1])
+            Dense(sz[i], sz[i+1])
             for i in range(len(nouts))
         ]
 
@@ -90,7 +103,7 @@ class MLP:
 class ClassifcationNN:
     def __init__(self,nin,nouts):
         sz = [nin] + nouts
-        self.layers = [Layer(sz[i],sz[i+1]) for i in range(len(nouts))]
+        self.layers = [Dense(sz[i],sz[i+1]) for i in range(len(nouts))]
         
     def __call__(self, x):
         
@@ -110,6 +123,26 @@ class ClassifcationNN:
             params.extend(layer.parameters())
 
         return params
+    
+# Convulution Neural Network.
+# convultuion layer
+class Conv2d:
+    def __init__(self,in_channels,out_channels, kernel_size):
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.layer = Tensor(np.random.uniform(-1,1,(self.out_channels,self.in_channels,self.kernel_size,self.kernel_size)))
+        self.b = Tensor(np.zeros((1,out_channels)))
+    
+    def __call__(self,x:Tensor):
+        feature_map = []
+        for idx,filter in enumerate(self.layer):
+            _out = x.conv2d(filter)
+            feature_map.append(_out)
+        output_tensor = Tensor.stack(feature_map)
+        return output_tensor
+
+
 
 if __name__=='__main__':
     mlp = MLP(3, [4, 4, 1])

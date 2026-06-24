@@ -27,12 +27,16 @@ using an 80:20 train/test split.
 - `ScratchTorch/grad.py` - core autodiff code:
   - `Value`: original scalar ScratchTorch implementation.
   - `Tensor`: optimized NumPy-backed autodiff class for arrays and batches.
+  - `conv2d()`: convolution operation with backpropagation support for 2D
+    image kernels.
 - `ScratchTorch/nn.py` - neural-network building blocks:
   - deprecated scalar `Neuron_value`, `Layer_value`, and `MLP_value`.
   - tensor-based `Layer`, `MLP`, and `ClassifcationNN`.
+  - `Conv2d`: convolutional layer for building CNN architectures.
 - `resources/prediction.png` - saved prediction/result image.
-- `basic-neural-network-from-scratch.ipynb` - exploratory notebook and
-  visualizations.
+- `cnn.ipynb` - exploratory notebook for CNN experiments and visualizations.
+- `basic-neural-network-from-scratch.ipynb` - original notebook exploring the
+  MLP classifier.
 - `multilayer-perceptron.py` - older MLP experiment using the original
   ScratchTorch-style flow.
 - `dataset/` - expected location for `train.csv` and `test.csv`.
@@ -65,6 +69,23 @@ NumPy arrays:
 
 The older scalar classes are still kept in the code as deprecated references,
 which makes it easier to compare the simple version against the optimized one.
+
+---
+
+## Convolution support
+
+The library now includes support for 2D convolution operations with full
+backpropagation, enabling CNN architectures:
+
+- `Tensor.conv2d(kernel)`: applies a 2D convolution to image data with
+  automatic gradient computation.
+- `Conv2d`: layer class for building convolutional neural networks that
+  automatically initializes and manages convolution kernels.
+- kernel gradient computation enables training convolutional filters
+  end-to-end using backpropagation.
+
+This extends ScratchTorch beyond dense networks into the realm of image
+processing and computer vision experiments.
 
 ---
 
@@ -147,10 +168,11 @@ for p in net.parameters():
 
 ## Future plans
 
+- implement additional convolution features: padding, stride, pooling layers.
+- extend the `Conv2d` layer with bias terms and activation functions.
+- build a full CNN classifier for MNIST and benchmark against the current MLP.
 - clean up the learning-rate decay formula and make training hyperparameters
   easier to configure.
 - add helper methods for optimization steps so the training loop is cleaner.
 - save and load trained weights.
 - add prediction visualization directly to the training/evaluation workflow.
-- continue extending the optimized ScratchTorch library before moving toward CNN
-  experiments.

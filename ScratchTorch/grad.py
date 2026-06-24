@@ -449,6 +449,13 @@ class Tensor:
         
         return out
     
+    # iterator function
+    def __iter__(self):
+        # __getitem__ will take care yielding the tracked tensors.
+        for i in range(len(self.data)):
+            yield self[i]
+    
+    
     # transpose
     def transpose(self,axes=None):
         out =Tensor(np.transpose(self.data, axes), _children=(self,), _op ="transpose")
@@ -543,45 +550,60 @@ class Tensor:
 
         return out
     
-    # convolution for grayscale image
+    # convolution for multi-channel convultuon
     def conv2d(self, kernel):
-        
-        # checking if the image is grayscale or not
-        if len(self.data.shape) != 2:
-            raise ValueError(f"Conv2d is for grayscale images only.")
-        
         # checking if the kernel object is tensor object or not.
         if not isinstance(kernel, (Tensor)):
             raise ValueError(f"Kernel should be a tensor. not dtype: {type(kernel)}. ")
-        
-        # getting Width and Height of the IMAGE as the the image is grayscale
-        H,W = self.data.shape
-        k = kernel.data.shape[0]
-        
-        # getting the height and width of the output
-        out_h = H - k + 1
-        out_w = W - k + 1
-        
-        # row tensor stack.
-        rows = []
-        
-        for i in range(out_h):
-            cols = []
-            for j in range(out_w):
+        # checking if the tensor is multichannel or not
+        if len(self.data.shape) != 2:
+            # getting the height and width of the output and number of channels in the tensor.
+            H,W,channel = self.data.shape
+            k = kernel.data.shape[0]
+            
+            
+            # getting the height and width of the output (currently no padding and stride)
+            out_h = H - k + 1
+            out_w = W - k + 1
+            
+            output = []
+            for img,k in zip(self,kernel):
+                img_after_conv = img.conv2d(k)
+                output.append(img_after_conv)
+            output_tensor = Tensor.stack(output)
+            return output_tensor.sum()
                 
-                # slicing the patch out of the image
-                patch = self[i:i+k,j:j+k]
-                # saving the result in temp because that just helps me what actually is happening rather than just wrapping it one line.
-                temp  =(patch*kernel)
-                # calculating the pixel value after applying the kernel/filter
-                pixel = temp.sum()
-                
-                cols.append(pixel)
-                
-            row_tensor = Tensor.stack(cols)
-            rows.append(row_tensor)
-        # stacking the tensors of the rows into one.
-        output = Tensor.stack(rows,0)
+            
+        else:
+            
+            # getting Width and Height of the IMAGE as the the image is grayscale
+            H,W = self.data.shape
+            k = kernel.data.shape[0]
+            
+            # getting the height and width of the output (currently no padding and stride)
+            out_h = H - k + 1
+            out_w = W - k + 1
+            
+            # row tensor stack.
+            rows = []
+            
+            for i in range(out_h):
+                cols = []
+                for j in range(out_w):
+                    
+                    # slicing the patch out of the image
+                    patch = self[i:i+k,j:j+k]
+                    # saving the result in temp because that just helps me what actually is happening rather than just wrapping it one line.
+                    temp  =(patch*kernel)
+                    # calculating the pixel value after applying the kernel/filter
+                    pixel = temp.sum()
+                    
+                    cols.append(pixel)
+                    
+                row_tensor = Tensor.stack(cols)
+                rows.append(row_tensor)
+            # stacking the tensors of the rows into one.
+            output = Tensor.stack(rows,0)
             
         return output
     
@@ -599,14 +621,11 @@ class Tensor:
         
         
         return img_data
-        
+    
 
-            
-                
+    
         
-        
-        
-         
+             
     
 if __name__ == "__main__":
     
