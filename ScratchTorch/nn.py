@@ -132,15 +132,55 @@ class Conv2d:
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.layer = Tensor(np.random.uniform(-1,1,(self.out_channels,self.in_channels,self.kernel_size,self.kernel_size)))
-        self.b = Tensor(np.zeros((1,out_channels)))
+        self.b = Tensor(np.zeros((out_channels,)))
     
     def __call__(self,x:Tensor):
         feature_map = []
         for idx,filter in enumerate(self.layer):
             _out = x.conv2d(filter)
             feature_map.append(_out)
+            
+        
         output_tensor = Tensor.stack(feature_map)
-        return output_tensor
+        output_tensor = output_tensor.transpose((1, 0, 2, 3))
+        # adding bias to the layer
+        output_tensor = output_tensor + self.b.reshape((1, self.out_channels,1,1))
+        # applying relu activation function to the layer.
+        return output_tensor.relu()
+    
+class Flatten:
+    def __call__(self,x:Tensor):
+        # checking if the input is 4d:
+        if len(x.data.shape) == 4:
+            B,C,H,W = x.data.shape
+            # reshape to (Batch,Features)
+            return x.reshape((B,C*H*W))
+        elif len(x.data.shape) == 3:
+            C,H,W = x.data.shape
+            return x.reshape((1,C*H*W))
+        else:
+            raise ValueError(f"Expected a 4D or 3D Tensor, got {len(x.data.shape)}")
+
+
+
+class CNN:
+    def __init__(self,layers):
+        if self.validate_layers(layers):
+            self.layers= layers
+        else:
+            raise ValueError("Model Could not be initialised.")
+    
+    def __call__(self, x):
+        for layer in self.layers:
+                x = layer(x)
+        return x
+    
+    def validate_layers(self,layers):
+        for idx,layer in enumerate(layers):
+            if not isinstance(layer,(Conv2d, Dense, Flatten)):
+                raise ValueError(f"Invalid Layer Type passed to CNN Model. dtype:{type(layer)}. Layer Number:{idx+1}")
+        return True
+
 
 
 

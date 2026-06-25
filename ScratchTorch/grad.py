@@ -118,6 +118,8 @@ class Tensor:
         self._prev = set(_children)
         # local backward function which is None by default because value can be constant thus no default derivative
         self._backward = lambda:None
+        # shape attribute for the tensor. so we dont have ot go Tensor.data.shape everytime.
+        self.shape  = self.data.shape
         
         
     def __repr__(self):
@@ -552,14 +554,31 @@ class Tensor:
     
     # convolution for multi-channel convultuon
     def conv2d(self, kernel):
+        
         # checking if the kernel object is tensor object or not.
         if not isinstance(kernel, (Tensor)):
             raise ValueError(f"Kernel should be a tensor. not dtype: {type(kernel)}. ")
         # checking if the tensor is multichannel or not
-        if len(self.data.shape) != 2:
+        # applying conv to a batch
+        if len(self.data.shape) == 4:
+            B,C,H,W = self.data.shape
+            batch_outputs = []
+            
+            for b in range(B):
+                single_img = self[b]
+                
+                out = single_img.conv2d(kernel)
+                
+                batch_outputs.append(out)
+            return Tensor.stack(batch_outputs)
+            
+        
+        
+        # single image convultion
+        if len(self.data.shape) == 3:
             # getting the height and width of the output and number of channels in the tensor.
-            H,W,channel = self.data.shape
-            k = kernel.data.shape[0]
+            channel,H,W = self.data.shape
+            k = kernel.data.shape[-1]
             
             
             # getting the height and width of the output (currently no padding and stride)
@@ -567,18 +586,19 @@ class Tensor:
             out_w = W - k + 1
             
             output = []
-            for img,k in zip(self,kernel):
-                img_after_conv = img.conv2d(k)
+            for img, k_slice in zip(self, kernel):
+                # Recursively call conv2d for each 2D channel
+                img_after_conv = img.conv2d(k_slice) 
                 output.append(img_after_conv)
             output_tensor = Tensor.stack(output)
-            return output_tensor.sum()
+            return output_tensor.sum(axis=0)
                 
             
         else:
             
             # getting Width and Height of the IMAGE as the the image is grayscale
             H,W = self.data.shape
-            k = kernel.data.shape[0]
+            k = kernel.data.shape[-1]
             
             # getting the height and width of the output (currently no padding and stride)
             out_h = H - k + 1
